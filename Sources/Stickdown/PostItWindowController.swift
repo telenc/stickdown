@@ -19,6 +19,11 @@ final class PostItWindowController: NSObject, NSWindowDelegate {
 
     private var frameKey: String { "frame::\(url.path)" }
     private var cancellables = Set<AnyCancellable>()
+    private let collapsedHeight: CGFloat = 32
+
+    /// Source de vérité : la géométrie DÉPLIÉE complète. Le repli n'est qu'un affichage.
+    private var expandedFrame = NSRect(x: 0, y: 0, width: 360, height: 420)
+    private var applyingFrame = false   // évite que nos propres setFrame ne corrompent expandedFrame
 
     init(url: URL) {
         self.url = url
@@ -39,9 +44,11 @@ final class PostItWindowController: NSObject, NSWindowDelegate {
         panel.delegate = self
         panel.minSize = NSSize(width: 220, height: 160)
 
-        // Épinglé (toujours au-dessus) vs normal, selon l'état mémorisé de la note.
         vm.$pinned
             .sink { [weak self] pinned in self?.applyPinned(pinned) }
+            .store(in: &cancellables)
+        vm.$opacity
+            .sink { [weak self] value in self?.panel.alphaValue = CGFloat(value) }
             .store(in: &cancellables)
 
         let root = PostItView(
@@ -51,9 +58,36 @@ final class PostItWindowController: NSObject, NSWindowDelegate {
         )
         let hosting = NSHostingView(rootView: root)
         hosting.wantsLayer = true
+        // Empêche SwiftUI de redimensionner la fenêtre selon son contenu : c'est NOUS qui gérons la taille.
+        hosting.sizingOptions = []
         panel.contentView = hosting
 
-        restoreFrame()
+        loadExpandedFrame()
+
+        vm.$collapsed
+            .sink { [weak self] collapsed in self?.applyCollapsed(collapsed) }
+            .store(in: &cancellables)
+    }
+
+    // MARK: Repli (transformation visuelle)
+
+    private func collapsedRect(from e: NSRect) -> NSRect {
+        // Même haut, même largeur, hauteur réduite à la barre de titre.
+        NSRect(x: e.minX, y: e.maxY - collapsedHeight, width: e.width, height: collapsedHeight)
+    }
+
+    private func applyCollapsed(_ collapsed: Bool) {
+        applyingFrame = true
+        if collapsed {
+            panel.minSize = NSSize(width: 220, height: collapsedHeight)
+            panel.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: collapsedHeight)
+            panel.setFrame(collapsedRect(from: expandedFrame), display: true)
+        } else {
+            panel.minSize = NSSize(width: 220, height: 160)
+            panel.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            panel.setFrame(expandedFrame, display: true)
+        }
+        applyingFrame = false
     }
 
     private func applyPinned(_ pinned: Bool) {
@@ -74,29 +108,45 @@ final class PostItWindowController: NSObject, NSWindowDelegate {
 
     // MARK: Persistance de la géométrie
 
-    private func restoreFrame() {
+    private func loadExpandedFrame() {
         if let s = UserDefaults.standard.string(forKey: frameKey) {
-            panel.setFrame(NSRectFromString(s), display: false)
-        } else {
-            // Cascade depuis le coin haut-droit de l'écran principal.
-            if let screen = NSScreen.main {
-                let v = screen.visibleFrame
-                let off = CGFloat(UserDefaults.standard.integer(forKey: "cascade") % 6) * 28
-                UserDefaults.standard.set(UserDefaults.standard.integer(forKey: "cascade") + 1, forKey: "cascade")
-                panel.setFrameOrigin(NSPoint(x: v.maxX - 360 - off, y: v.maxY - 420 - off))
-            }
+            expandedFrame = NSRectFromString(s)
+            if expandedFrame.height < 160 { expandedFrame.size.height = 420 }  // répare une géométrie corrompue
+        } else if let screen = NSScreen.main {
+            let v = screen.visibleFrame
+            let off = CGFloat(UserDefaults.standard.integer(forKey: "cascade") % 6) * 28
+            UserDefaults.standard.set(UserDefaults.standard.integer(forKey: "cascade") + 1, forKey: "cascade")
+            expandedFrame = NSRect(x: v.maxX - 380 - off, y: v.maxY - 460 - off, width: 360, height: 420)
         }
+        applyingFrame = true
+        panel.setFrame(vm.collapsed ? collapsedRect(from: expandedFrame) : expandedFrame, display: false)
+        applyingFrame = false
     }
 
     private func saveFrame() {
-        UserDefaults.standard.set(NSStringFromRect(panel.frame), forKey: frameKey)
+        UserDefaults.standard.set(NSStringFromRect(expandedFrame), forKey: frameKey)
     }
 
-    func windowDidMove(_ notification: Notification) { saveFrame() }
-    func windowDidResize(_ notification: Notification) { saveFrame() }
+    /// Met à jour la géométrie dépliée d'après la position/taille actuelle de la fenêtre.
+    private func syncExpandedFrame() {
+        guard !applyingFrame else { return }
+        let f = panel.frame
+        if vm.collapsed {
+            // En replié, on ne suit que la position/largeur (le haut reste ancré).
+            expandedFrame.origin.x = f.origin.x
+            expandedFrame.size.width = f.size.width
+            expandedFrame.origin.y = f.maxY - expandedFrame.size.height
+        } else {
+            expandedFrame = f
+        }
+        saveFrame()
+    }
+
+    func windowDidMove(_ notification: Notification) { syncExpandedFrame() }
+    func windowDidResize(_ notification: Notification) { syncExpandedFrame() }
 
     func windowWillClose(_ notification: Notification) {
-        saveFrame()
+        syncExpandedFrame()
         onClose?(url)
     }
 }

@@ -19,6 +19,16 @@ final class PostItViewModel: ObservableObject {
         didSet { UserDefaults.standard.set(Double(zoom), forKey: "zoom::\(url.path)") }
     }
 
+    /// Opacité de la fenêtre (0.4–1.0). Mémorisée par note.
+    @Published var opacity: Double {
+        didSet { UserDefaults.standard.set(opacity, forKey: "opacity::\(url.path)") }
+    }
+
+    /// Replié en barre de titre. Mémorisé par note.
+    @Published var collapsed: Bool {
+        didSet { UserDefaults.standard.set(collapsed, forKey: "collapsed::\(url.path)") }
+    }
+
     /// Vrai quand l'éditeur a le focus (empêche d'écraser une saisie en cours).
     var isEditorFocused = false
 
@@ -34,6 +44,9 @@ final class PostItViewModel: ObservableObject {
         self.pinned = UserDefaults.standard.bool(forKey: "pinned::\(url.path)")
         let savedZoom = UserDefaults.standard.double(forKey: "zoom::\(url.path)")
         self.zoom = savedZoom > 0 ? CGFloat(savedZoom) : 1.0
+        let savedOpacity = UserDefaults.standard.double(forKey: "opacity::\(url.path)")
+        self.opacity = savedOpacity > 0 ? savedOpacity : 1.0
+        self.collapsed = UserDefaults.standard.bool(forKey: "collapsed::\(url.path)")
         loadFromDisk()
         watcher = FileWatcher(url: url) { [weak self] in
             self?.reloadIfChanged()

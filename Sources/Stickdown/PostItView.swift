@@ -6,6 +6,7 @@ struct PostItView: View {
     var onOpenNote: (String) -> Void
 
     @State private var hoveringHeader = false
+    @State private var showOpacity = false
 
     private var bg: Color { StickyColor.background(vm.colorName) }
     private var accent: Color { StickyColor.accent(vm.colorName) }
@@ -13,8 +14,10 @@ struct PostItView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider().opacity(0.12)
-            MarkdownTextView(vm: vm, onOpenNote: onOpenNote)
+            if !vm.collapsed {
+                Divider().opacity(0.12)
+                MarkdownTextView(vm: vm, onOpenNote: onOpenNote)
+            }
         }
         .background(bg)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -34,6 +37,14 @@ struct PostItView: View {
             .keyboardShortcut("w", modifiers: .command)
             .help("Fermer (⌘W)")
 
+            Button { vm.collapsed.toggle() } label: {
+                Image(systemName: vm.collapsed ? "chevron.right" : "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.black.opacity(hoveringHeader ? 0.5 : 0.28))
+            }
+            .buttonStyle(.plain)
+            .help(vm.collapsed ? "Déplier" : "Replier en barre de titre")
+
             Text(vm.title)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(accent)
@@ -49,12 +60,34 @@ struct PostItView: View {
             .buttonStyle(.plain)
             .help(vm.pinned ? "Désépingler (ne plus rester au-dessus)" : "Épingler au-dessus de tout")
 
+            opacityButton
             colorMenu
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .contentShape(Rectangle())
         .onHover { hoveringHeader = $0 }
+        // Double-clic sur l'entête → replie / déplie en barre de titre.
+        .onTapGesture(count: 2) { vm.collapsed.toggle() }
+    }
+
+    private var opacityButton: some View {
+        Button { showOpacity.toggle() } label: {
+            Image(systemName: "circle.lefthalf.filled")
+                .font(.system(size: 12))
+                .foregroundStyle(accent.opacity(hoveringHeader ? 0.85 : 0.5))
+        }
+        .buttonStyle(.plain)
+        .help("Opacité")
+        .popover(isPresented: $showOpacity, arrowEdge: .bottom) {
+            HStack(spacing: 8) {
+                Image(systemName: "circle.dotted").font(.system(size: 11))
+                Slider(value: $vm.opacity, in: 0.4...1.0)
+                Image(systemName: "circle.fill").font(.system(size: 11))
+            }
+            .frame(width: 180)
+            .padding(12)
+        }
     }
 
     private var colorMenu: some View {
