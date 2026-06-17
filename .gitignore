@@ -1,0 +1,14 @@
+# Swift / SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# App bundle (généré par package.sh)
+*.app
+
+# Icône intermédiaire (l'.icns final est versionné)
+packaging/AppIcon-1024.png
+packaging/AppIcon.iconset/
+
+# macOS
+.DS_Store
