@@ -1,11 +1,14 @@
 import AppKit
 import ServiceManagement
+import Carbon.HIToolbox
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var controllers: [URL: PostItWindowController] = [:]
     private let openNotesKey = "openNotes"
+    private let searchPalette = SearchPaletteController()
+    private var hotKey: GlobalHotKey?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -18,8 +21,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         installMainMenu()
 
+        searchPalette.onOpenNote = { [weak self] url in self?.openNote(url: url) }
+        searchPalette.onCreateNote = { [weak self] name in self?.openNote(name: name) }
+
+        // Raccourci global ⌃⌥N : ouvre la palette de recherche/capture de n'importe où.
+        hotKey = GlobalHotKey(keyCode: UInt32(kVK_ANSI_N),
+                              modifiers: UInt32(controlKey | optionKey)) { [weak self] in
+            self?.showSearchPalette()
+        }
+
         if !Vault.isConfigured { promptForVault() }
         reopenSavedNotes()
+    }
+
+    @objc private func showSearchPalette() {
+        if !Vault.isConfigured { promptForVault() }
+        guard Vault.isConfigured else { return }
+        searchPalette.show()
     }
 
     /// Menu principal (invisible pour une app accessory) qui active les raccourcis
@@ -33,6 +51,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appItem.submenu = appMenu
         appMenu.addItem(withTitle: "Quitter Stickdown",
                         action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        let fileItem = NSMenuItem()
+        main.addItem(fileItem)
+        let fileMenu = NSMenu(title: "Fichier")
+        fileItem.submenu = fileMenu
+        let search = fileMenu.addItem(withTitle: "Recherche rapide…",
+                                      action: #selector(showSearchPalette), keyEquivalent: "o")
+        search.target = self
+        let newN = fileMenu.addItem(withTitle: "Nouvelle note…",
+                                    action: #selector(newNote), keyEquivalent: "n")
+        newN.target = self
 
         let editItem = NSMenuItem()
         main.addItem(editItem)
