@@ -47,7 +47,7 @@ perfectly in sync with Obsidian.
 
 ## 🖼️ Screenshots
 
-_Add a screenshot or two here (e.g. `docs/screenshot.png`) once you've run the app._
+![Stickdown — three linked notes on the desktop](docs/screenshot.png)
 
 ## 🚀 Install / Build
 

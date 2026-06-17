@@ -60,15 +60,26 @@ struct SearchPalette: View {
     @FocusState private var focused: Bool
 
     private var results: [URL] {
-        guard !query.isEmpty else { return notes }
-        let q = query.lowercased()
+        let q = query.lowercased().trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return notes }
         return notes
-            .filter { fuzzy(q, $0.deletingPathExtension().lastPathComponent.lowercased()) }
-            .sorted { a, b in
-                let an = a.deletingPathExtension().lastPathComponent.lowercased()
-                let bn = b.deletingPathExtension().lastPathComponent.lowercased()
-                return an.hasPrefix(q) && !bn.hasPrefix(q)
+            .compactMap { url -> (URL, Int)? in
+                let name = url.deletingPathExtension().lastPathComponent.lowercased()
+                guard let score = matchScore(q, name) else { return nil }
+                return (url, score)
             }
+            .sorted { $0.1 != $1.1 ? $0.1 > $1.1
+                : $0.0.lastPathComponent.localizedCaseInsensitiveCompare($1.0.lastPathComponent) == .orderedAscending }
+            .map { $0.0 }
+    }
+
+    /// Score de pertinence, ou nil si pas de correspondance.
+    private func matchScore(_ q: String, _ name: String) -> Int? {
+        if name == q { return 100 }
+        if name.hasPrefix(q) { return 80 }
+        if name.contains(q) { return 60 }
+        if isSubsequence(q, name) { return 40 }
+        return nil
     }
 
     var body: some View {
@@ -145,15 +156,13 @@ struct SearchPalette: View {
         }
     }
 
-    /// Correspondance « sous-séquence » (les lettres de q apparaissent dans l'ordre).
-    private func fuzzy(_ q: String, _ s: String) -> Bool {
-        if s.contains(q) { return true }
-        var it = s.makeIterator()
-        for ch in q {
-            var found = false
-            while let c = it.next() { if c == ch { found = true; break } }
-            if !found { return false }
+    /// « Sous-séquence » : les lettres de q apparaissent dans l'ordre dans s.
+    private func isSubsequence(_ q: String, _ s: String) -> Bool {
+        var qi = q.startIndex
+        for ch in s {
+            if qi == q.endIndex { break }
+            if ch == q[qi] { qi = q.index(after: qi) }
         }
-        return true
+        return qi == q.endIndex
     }
 }
