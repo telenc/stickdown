@@ -1,4 +1,8 @@
-# 📌 Stickdown
+<p align="center">
+  <img src="docs/icon.png" width="140" alt="Stickdown icon">
+</p>
+
+<h1 align="center">Stickdown</h1>
 
 **Floating sticky notes for your Markdown / Obsidian vault — native macOS, live preview, always on top.**
 
