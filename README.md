@@ -23,13 +23,23 @@ perfectly in sync with Obsidian.
   checked items get struck through. Saved instantly to the file.
 - 🔗 **Wikilinks** — `[[Note]]` renders without the brackets; `⌘`-click opens it as a
   new sticky. Linking to a note that doesn't exist yet **creates the file**.
-- 🎨 **Per-note color** — reads the `colorful-sticky-bg` frontmatter key
-  (`yellow`, `green`, `blue`, `pink`, `purple`, `orange`, `red`, `gray`).
+- 🎨 **Per-note color** — pick from a palette in the header; written to the
+  `colorful-sticky-bg` frontmatter key (`yellow`, `green`, `blue`, `pink`,
+  `purple`, `orange`, `red`, `gray`).
+- ⏎ **List auto-continuation** — pressing Enter on a checkbox/bullet line starts the
+  next item; an empty item exits the list.
+- 📌 **Pin / unpin** — toggle always-on-top per note (unpinned notes drop behind when
+  you click another window).
+- 🫥 **Adjustable opacity** & 🔼 **roll-up** — make a note translucent, or collapse it
+  to just its title bar (chevron or double-click the header).
+- 🔠 **Per-note text zoom** — `⌘+` / `⌘-` / `⌘0`.
+- 🔎 **Quick-search palette** — `⌘O`, or the global hotkey **⌃⌥N** from anywhere, to
+  fuzzy-find/open a note or create a new one.
 - 🙈 **Clean chrome** — frontmatter and the redundant top-level title are hidden in
   the note body (the title shows in the sticky's header bar).
 - 🔄 **Two-way sync** — external edits (Obsidian, iCloud) update the sticky live.
-- 🧷 **Sticky sessions** — open notes, positions and sizes are remembered across
-  launches. Optional **launch at login**.
+- 🧷 **Sticky sessions** — open notes, positions, sizes, colors and pin/zoom state are
+  remembered across launches. Optional **launch at login**.
 
 ## 🖼️ Screenshots
 
@@ -67,11 +77,18 @@ swift run -c release
 
 | Action | How |
 |--------|-----|
+| Quick search / open | `⌘O`, or global hotkey `⌃⌥N` |
 | Open a note | Menu-bar 📝 → pick a note |
-| New note | Menu-bar 📝 → **New note…** (or `⌘`-click a non-existing `[[link]]`) |
+| New note | `⌘N`, menu-bar 📝 → **New note…**, or `⌘`-click a non-existing `[[link]]` |
 | Edit | Just click and type on a note |
 | Toggle a checkbox | Click the checkbox |
 | Follow a link | `⌘`-click the link / wikilink |
+| Continue a list | Press Enter on a checkbox/bullet line |
+| Change color | Palette button in the header |
+| Pin / unpin (always on top) | Pin button in the header |
+| Opacity | Opacity button in the header |
+| Roll up / down | Chevron in the header, or double-click the header |
+| Zoom text | `⌘+` / `⌘-` / `⌘0` |
 | Move / resize | Drag the note / drag its edges |
 | Close a note | × in the header (or `⌘W`) |
 | Launch at login | Menu-bar 📝 → **Launch at login** |
@@ -89,24 +106,26 @@ swift run -c release
 ```
 Sources/Stickdown/
 ├── main.swift                  # bootstrap (accessory app)
-├── AppDelegate.swift           # menu bar, vault, window management
+├── AppDelegate.swift           # menu bar, vault, window management, hotkey
 ├── Vault.swift                 # find / resolve / create .md notes
-├── PostItWindowController.swift # floating NSPanel + geometry persistence
-├── PostItView.swift            # SwiftUI header + editor host
-├── PostItViewModel.swift       # note state, save, file sync
+├── PostItWindowController.swift # floating NSPanel + geometry / collapse / opacity
+├── PostItView.swift            # SwiftUI header (color/pin/opacity/collapse) + editor host
+├── PostItViewModel.swift       # note state, save, file sync, per-note settings
 ├── MarkdownTextView.swift      # live editor (NSTextView) + checkbox layout manager
-├── Highlighter.swift           # live Markdown styling / marker hiding
+├── Highlighter.swift           # live Markdown styling / marker hiding / zoom
 ├── Markdown.swift              # frontmatter + checkbox parsing helpers
 ├── StickyColor.swift           # color palette
-└── FileWatcher.swift           # on-disk change watcher
+├── FileWatcher.swift           # on-disk change watcher
+├── SearchPalette.swift         # quick-search / quick-create palette
+└── GlobalHotKey.swift          # Carbon global hotkey
 ```
 
 ## 🗺️ Roadmap ideas
 
 - Unresolved links shown in a distinct color
-- In-note color picker & pin/unpin (always-on-top toggle)
 - Inline images, tables, nested lists
-- Global hotkey to summon a quick note
+- Settings window (default color, opacity, customizable hotkey)
+- Notarized release with a downloadable `.app`
 
 ## 📄 License
 
