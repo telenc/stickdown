@@ -43,6 +43,25 @@ enum Markdown {
         return nil
     }
 
+    /// Écrit (ou insère) une clé de frontmatter et retourne le texte modifié.
+    static func settingFrontmatter(_ text: String, key: String, value: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        let newLine = "\(key): \(value)"
+        if lines.first == "---", let end = lines.dropFirst().firstIndex(of: "---") {
+            var replaced = false
+            if end > 1 {
+                for i in 1..<end where lines[i].hasPrefix("\(key):") {
+                    lines[i] = newLine
+                    replaced = true
+                    break
+                }
+            }
+            if !replaced { lines.insert(newLine, at: end) }
+            return lines.joined(separator: "\n")
+        }
+        return "---\n\(newLine)\n---\n\n" + text
+    }
+
     /// Construit les blocs à partir des lignes du corps. `offset` = index absolu de la 1re ligne du corps.
     static func parse(body: [String], offset: Int) -> [Block] {
         var blocks: [Block] = []

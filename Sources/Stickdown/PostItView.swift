@@ -40,10 +40,41 @@ struct PostItView: View {
                 .lineLimit(1)
 
             Spacer(minLength: 4)
+
+            Button { vm.pinned.toggle() } label: {
+                Image(systemName: vm.pinned ? "pin.fill" : "pin")
+                    .font(.system(size: 11))
+                    .foregroundStyle(accent.opacity(vm.pinned ? 0.9 : (hoveringHeader ? 0.8 : 0.45)))
+            }
+            .buttonStyle(.plain)
+            .help(vm.pinned ? "Désépingler (ne plus rester au-dessus)" : "Épingler au-dessus de tout")
+
+            colorMenu
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .contentShape(Rectangle())
         .onHover { hoveringHeader = $0 }
+    }
+
+    private var colorMenu: some View {
+        Menu {
+            ForEach(StickyColor.all, id: \.self) { name in
+                Button {
+                    vm.setColor(name)
+                } label: {
+                    Label(name.capitalized, systemImage:
+                            (vm.colorName ?? "yellow") == name ? "checkmark.circle.fill" : "circle.fill")
+                }
+            }
+        } label: {
+            Image(systemName: "paintpalette.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(accent.opacity(hoveringHeader ? 0.9 : 0.55))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Couleur du post-it")
     }
 }

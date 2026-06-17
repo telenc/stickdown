@@ -9,8 +9,16 @@ final class PostItViewModel: ObservableObject {
     @Published var title: String = ""
     @Published var colorName: String?
 
+    /// Épinglé = toujours au-dessus. Mémorisé par note.
+    @Published var pinned: Bool {
+        didSet { UserDefaults.standard.set(pinned, forKey: "pinned::\(url.path)") }
+    }
+
     /// Vrai quand l'éditeur a le focus (empêche d'écraser une saisie en cours).
     var isEditorFocused = false
+
+    /// Permet de pousser un nouveau texte directement dans l'éditeur (ex: changement de couleur).
+    var pushToEditor: ((String) -> Void)?
 
     private var watcher: FileWatcher?
     private var saveWorkItem: DispatchWorkItem?
@@ -18,6 +26,7 @@ final class PostItViewModel: ObservableObject {
 
     init(url: URL) {
         self.url = url
+        self.pinned = UserDefaults.standard.bool(forKey: "pinned::\(url.path)")
         loadFromDisk()
         watcher = FileWatcher(url: url) { [weak self] in
             self?.reloadIfChanged()
@@ -72,6 +81,15 @@ final class PostItViewModel: ObservableObject {
         let work = DispatchWorkItem { [weak self] in self?.write(text) }
         saveWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
+    /// Change la couleur du post-it (écrit le frontmatter colorful-sticky-bg).
+    func setColor(_ name: String) {
+        let new = Markdown.settingFrontmatter(rawText, key: "colorful-sticky-bg", value: name)
+        rawText = new
+        recomputeMeta(new)
+        pushToEditor?(new)
+        flushSave()
     }
 
     /// Sauvegarde immédiate (ex: à la perte de focus).

@@ -89,6 +89,7 @@ struct MarkdownTextView: NSViewRepresentable {
         tv.string = vm.rawText
         context.coordinator.textView = tv
         context.coordinator.accent = NSColor(StickyColor.accent(vm.colorName))
+        context.coordinator.installPushHandler()
         context.coordinator.highlight()
 
         scroll.documentView = tv
@@ -119,6 +120,18 @@ struct MarkdownTextView: NSViewRepresentable {
         init(vm: PostItViewModel, onOpenNote: @escaping (String) -> Void) {
             self.vm = vm
             self.onOpenNote = onOpenNote
+        }
+
+        /// Permet au VM (changement de couleur) de remplacer le texte sans casser le curseur.
+        func installPushHandler() {
+            vm.pushToEditor = { [weak self] text in
+                guard let self, let tv = self.textView, tv.string != text else { return }
+                let sel = tv.selectedRange
+                tv.string = text
+                let len = (tv.string as NSString).length
+                tv.setSelectedRange(NSRange(location: min(sel.location, len), length: 0))
+                self.highlight()
+            }
         }
 
         func textDidChange(_ notification: Notification) {

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 /// Panneau flottant (le "post-it").
 final class PostItPanel: NSPanel {
@@ -17,6 +18,7 @@ final class PostItWindowController: NSObject, NSWindowDelegate {
     var onOpenNote: ((String) -> Void)?
 
     private var frameKey: String { "frame::\(url.path)" }
+    private var cancellables = Set<AnyCancellable>()
 
     init(url: URL) {
         self.url = url
@@ -29,16 +31,18 @@ final class PostItWindowController: NSObject, NSWindowDelegate {
         )
         super.init()
 
-        panel.isFloatingPanel = true
-        panel.level = .floating
         panel.isMovableByWindowBackground = true
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
         panel.delegate = self
         panel.minSize = NSSize(width: 220, height: 160)
+
+        // Épinglé (toujours au-dessus) vs normal, selon l'état mémorisé de la note.
+        vm.$pinned
+            .sink { [weak self] pinned in self?.applyPinned(pinned) }
+            .store(in: &cancellables)
 
         let root = PostItView(
             vm: vm,
@@ -50,6 +54,14 @@ final class PostItWindowController: NSObject, NSWindowDelegate {
         panel.contentView = hosting
 
         restoreFrame()
+    }
+
+    private func applyPinned(_ pinned: Bool) {
+        panel.isFloatingPanel = pinned
+        panel.level = pinned ? .floating : .normal
+        panel.collectionBehavior = pinned
+            ? [.canJoinAllSpaces, .fullScreenAuxiliary]
+            : [.fullScreenAuxiliary]
     }
 
     func show() {
