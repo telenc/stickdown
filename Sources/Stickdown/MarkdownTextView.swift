@@ -165,8 +165,17 @@ struct MarkdownTextView: NSViewRepresentable {
                 }
             }
             (tv.layoutManager as? CheckboxLayoutManager)?.accent = accent
-            Highlighter.apply(to: tv, accent: accent, activeLine: activeLine)
+            Highlighter.apply(to: tv, accent: accent, activeLine: activeLine, scale: vm.zoom)
             tv.needsDisplay = true
+        }
+
+        func changeZoom(by delta: CGFloat) {
+            setZoom(vm.zoom + delta)
+        }
+
+        func setZoom(_ value: CGFloat) {
+            vm.zoom = min(2.0, max(0.7, (value * 10).rounded() / 10))
+            highlight()
         }
 
         /// Gère ⌘+clic (ouvre lien) et clic sur une case à cocher (toggle).
@@ -232,4 +241,57 @@ final class MarkdownNSTextView: NSTextView {
         if coordinator?.handleMouseDown(event, in: self) == true { return }
         super.mouseDown(with: event)
     }
+
+    // Zoom (menu Affichage)
+    @objc func zoomIn(_ sender: Any?) { coordinator?.changeZoom(by: 0.1) }
+    @objc func zoomOut(_ sender: Any?) { coordinator?.changeZoom(by: -0.1) }
+    @objc func actualSize(_ sender: Any?) { coordinator?.setZoom(1.0) }
+
+    /// Auto-continuation des listes et cases à cocher quand on appuie sur Entrée.
+    override func insertNewline(_ sender: Any?) {
+        guard let storage = textStorage else { return super.insertNewline(sender) }
+        let ns = storage.string as NSString
+        let caret = selectedRange().location
+        let lineRange = ns.lineRange(for: NSRange(location: min(caret, ns.length), length: 0))
+        var line = ns.substring(with: lineRange)
+        if line.hasSuffix("\n") { line.removeLast() }
+
+        guard let cont = Self.listContinuation(line) else {
+            return super.insertNewline(sender)
+        }
+        if cont.itemEmpty {
+            // Item vide → on sort de la liste : retire le marqueur, reste sur la ligne.
+            let markerRange = NSRange(location: lineRange.location, length: cont.markerLength)
+            if shouldChangeText(in: markerRange, replacementString: "") {
+                storage.replaceCharacters(in: markerRange, with: "")
+                didChangeText()
+            }
+            return
+        }
+        super.insertNewline(sender)
+        insertText(cont.marker, replacementRange: selectedRange())
+    }
+
+    /// Détecte un marqueur de liste/case et renvoie le marqueur à répéter.
+    static func listContinuation(_ line: String) -> (marker: String, markerLength: Int, itemEmpty: Bool)? {
+        let ns = line as NSString
+        let full = NSRange(location: 0, length: ns.length)
+        // Case à cocher : "<indent>- [ ] contenu"
+        if let m = checkboxLine.firstMatch(in: line, range: full) {
+            let indent = ns.substring(with: m.range(at: 1))
+            let content = ns.substring(with: m.range(at: 2))
+            return ("\(indent)- [ ] ", m.range(at: 2).location,
+                    content.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        // Puce : "<indent>- contenu" ou "* "
+        if let m = bulletLine.firstMatch(in: line, range: full) {
+            let marker = ns.substring(with: m.range(at: 1))
+            let content = ns.substring(with: m.range(at: 2))
+            return (marker, m.range(at: 1).length, content.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        return nil
+    }
+
+    private static let checkboxLine = try! NSRegularExpression(pattern: "^(\\s*)[-*]\\s+\\[[ xX]\\]\\s+(.*)$")
+    private static let bulletLine   = try! NSRegularExpression(pattern: "^(\\s*[-*]\\s+)(.*)$")
 }

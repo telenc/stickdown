@@ -14,6 +14,11 @@ final class PostItViewModel: ObservableObject {
         didSet { UserDefaults.standard.set(pinned, forKey: "pinned::\(url.path)") }
     }
 
+    /// Facteur de zoom du texte (0.7–2.0). Mémorisé par note.
+    @Published var zoom: CGFloat {
+        didSet { UserDefaults.standard.set(Double(zoom), forKey: "zoom::\(url.path)") }
+    }
+
     /// Vrai quand l'éditeur a le focus (empêche d'écraser une saisie en cours).
     var isEditorFocused = false
 
@@ -27,6 +32,8 @@ final class PostItViewModel: ObservableObject {
     init(url: URL) {
         self.url = url
         self.pinned = UserDefaults.standard.bool(forKey: "pinned::\(url.path)")
+        let savedZoom = UserDefaults.standard.double(forKey: "zoom::\(url.path)")
+        self.zoom = savedZoom > 0 ? CGFloat(savedZoom) : 1.0
         loadFromDisk()
         watcher = FileWatcher(url: url) { [weak self] in
             self?.reloadIfChanged()

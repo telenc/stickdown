@@ -48,6 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         editMenu.addItem(withTitle: "Tout sélectionner",
                          action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
 
+        let viewItem = NSMenuItem()
+        main.addItem(viewItem)
+        let viewMenu = NSMenu(title: "Affichage")
+        viewItem.submenu = viewMenu
+        viewMenu.addItem(withTitle: "Agrandir le texte", action: Selector(("zoomIn:")), keyEquivalent: "+")
+        viewMenu.addItem(withTitle: "Réduire le texte", action: Selector(("zoomOut:")), keyEquivalent: "-")
+        viewMenu.addItem(withTitle: "Taille réelle", action: Selector(("actualSize:")), keyEquivalent: "0")
+
         NSApp.mainMenu = main
     }
 

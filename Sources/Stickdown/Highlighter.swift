@@ -1,18 +1,20 @@
 import AppKit
 
-/// Polices et couleurs de l'éditeur.
+/// Polices et couleurs de l'éditeur. `scale` applique le zoom par note.
 enum Style {
-    static let base = NSFont.systemFont(ofSize: 13)
-    static let bold = NSFont.boldSystemFont(ofSize: 13)
-    static let mono = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+    static var scale: CGFloat = 1
+
+    static var base: NSFont { .systemFont(ofSize: 13 * scale) }
+    static var bold: NSFont { .boldSystemFont(ofSize: 13 * scale) }
+    static var mono: NSFont { .monospacedSystemFont(ofSize: 12 * scale, weight: .regular) }
     static var italic: NSFont { NSFontManager.shared.convert(base, toHaveTrait: .italicFontMask) }
     /// Police "invisible" pour masquer les marqueurs markdown hors ligne active.
-    static let hidden = NSFont.systemFont(ofSize: 0.01)
+    static var hidden: NSFont { .systemFont(ofSize: 0.01) }
 
     static func heading(_ level: Int) -> NSFont {
         let size: CGFloat
         switch level { case 1: size = 19; case 2: size = 16.5; case 3: size = 14.5; default: size = 13 }
-        return NSFont.boldSystemFont(ofSize: size)
+        return NSFont.boldSystemFont(ofSize: size * scale)
     }
 
     static let text = NSColor.black.withAlphaComponent(0.85)
@@ -33,8 +35,9 @@ enum Highlighter {
     private static let italicRe = try! NSRegularExpression(pattern: "(?<![_\\w])_([^_]+)_(?![_\\w])")
     private static let codeRe   = try! NSRegularExpression(pattern: "`([^`]+)`")
 
-    static func apply(to textView: NSTextView?, accent: NSColor, activeLine: NSRange) {
+    static func apply(to textView: NSTextView?, accent: NSColor, activeLine: NSRange, scale: CGFloat = 1) {
         guard let textView, let storage = textView.textStorage else { return }
+        Style.scale = scale
         let ns = storage.string as NSString
         let full = NSRange(location: 0, length: ns.length)
 
