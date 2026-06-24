@@ -7,8 +7,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var controllers: [URL: PostItWindowController] = [:]
     private let openNotesKey = "openNotes"
+    private let dockKey = "showInDock"
     private let searchPalette = SearchPaletteController()
     private var hotKey: GlobalHotKey?
+
+    private var showInDock: Bool {
+        get { UserDefaults.standard.object(forKey: dockKey) as? Bool ?? true }  // vraie app par défaut
+        set { UserDefaults.standard.set(newValue, forKey: dockKey); applyActivationPolicy() }
+    }
+
+    private func applyActivationPolicy() {
+        NSApp.setActivationPolicy(showInDock ? .regular : .accessory)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -20,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
 
         installMainMenu()
+        applyActivationPolicy()
 
         searchPalette.onOpenNote = { [weak self] url in self?.openNote(url: url) }
         searchPalette.onCreateNote = { [weak self] name in self?.openNote(name: name) }
@@ -30,8 +41,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.showSearchPalette()
         }
 
+        // Quand un écran est branché/débranché, rapatrie les notes devenues invisibles.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screensChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil)
+
         if !Vault.isConfigured { promptForVault() }
         reopenSavedNotes()
+    }
+
+    @objc private func screensChanged() {
+        // Léger délai : laisse macOS finaliser la nouvelle disposition des écrans.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self else { return }
+            for controller in self.controllers.values { controller.ensureOnScreen() }
+        }
     }
 
     @objc private func showSearchPalette() {
@@ -186,6 +212,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        if !controllers.isEmpty {
+            let front = NSMenuItem(title: "Ramener les notes au premier plan",
+                                   action: #selector(bringAllToFront), keyEquivalent: "")
+            front.target = self
+            menu.addItem(front)
+        }
+
+        let dock = NSMenuItem(title: "Afficher dans le Dock (⌘Tab)",
+                              action: #selector(toggleDock), keyEquivalent: "")
+        dock.target = self
+        dock.state = showInDock ? .on : .off
+        menu.addItem(dock)
+
         let launch = NSMenuItem(title: "Lancer au démarrage", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         launch.target = self
         launch.state = (SMAppService.mainApp.status == .enabled) ? .on : .off
@@ -193,6 +232,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quitter Stickdown", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    }
+
+    @objc private func bringAllToFront() {
+        NSApp.activate(ignoringOtherApps: true)
+        for controller in controllers.values {
+            controller.ensureOnScreen()
+            controller.panel.orderFront(nil)
+        }
+    }
+
+    @objc private func toggleDock() {
+        showInDock.toggle()
+        if showInDock { NSApp.activate(ignoringOtherApps: true) }
     }
 
     @objc private func openFromMenu(_ sender: NSMenuItem) {

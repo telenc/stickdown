@@ -99,7 +99,38 @@ final class PostItWindowController: NSObject, NSWindowDelegate {
     }
 
     func show() {
+        ensureOnScreen()
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// Rapatrie la note sur un écran visible si sa géométrie sauvegardée pointe
+    /// vers un écran débranché (sinon elle reste invisible, « cachée » hors champ).
+    func ensureOnScreen() {
+        let onAScreen = NSScreen.screens.contains { screen in
+            // On exige un recouvrement réel, pas juste un pixel partagé au bord.
+            let visible = screen.visibleFrame.intersection(expandedFrame)
+            return visible.width >= 60 && visible.height >= 40
+        }
+        guard !onAScreen, let target = NSScreen.main ?? NSScreen.screens.first else { return }
+
+        let v = target.visibleFrame
+        var f = expandedFrame
+        f.size.width = min(f.width, v.width)
+        f.size.height = min(f.height, v.height)
+        f.origin.x = min(max(v.minX, f.minX), v.maxX - f.width)
+        f.origin.y = min(max(v.minY, f.minY), v.maxY - f.height)
+        // Si totalement hors écran, on centre.
+        if !v.intersects(f) {
+            f.origin.x = v.midX - f.width / 2
+            f.origin.y = v.midY - f.height / 2
+        }
+        expandedFrame = f
+        saveFrame()
+
+        applyingFrame = true
+        panel.setFrame(vm.collapsed ? collapsedRect(from: expandedFrame) : expandedFrame, display: true)
+        applyingFrame = false
+        panel.orderFront(nil)
     }
 
     func close() {
